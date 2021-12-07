@@ -7,6 +7,8 @@
 
 #include <platform.h>
 
+/* https://www.embecosm.com/appnotes/ean9/ean9-howto-newlib-1.0.html */
+
 // ----------------------------------------------------------------------------
 int _close(int file) {
 // ----------------------------------------------------------------------------
@@ -58,7 +60,7 @@ int _open(const char* name, int flags, int mode) {
 
 	if (strcmp(name, "UART")==0){
 
-		UART_REG(UART_DIV) = CPU_FREQ/115200-1;
+		UART_REG(UART_DIV) = CPU_FREQ/(115200-1);
 		UART_REG(UART_TXCTRL) = 0b01;
 		UART_REG(UART_RXCTRL) = 0b01;
 		UART_REG(UART_IE)     = 0b10; // RX irq
@@ -76,7 +78,7 @@ int _read(int file, char *ptr, size_t len) {
 
 	if (isatty(file)) {
 
-		ssize_t count = 0;
+		size_t count = 0;
 		int rxfifo = -1;
 
 		while( count<len && ((rxfifo = UART_REG(UART_RXFIFO)) >0) ){
@@ -91,6 +93,21 @@ int _read(int file, char *ptr, size_t len) {
 }
 
 // ----------------------------------------------------------------------------
+void _putchar(const char c) {
+// ----------------------------------------------------------------------------
+
+    while (UART_REG(UART_TXFIFO) & 0x80000000){;}
+
+    UART_REG(UART_TXFIFO) = c;
+
+    if (c == '\n') {
+        while (UART_REG(UART_TXFIFO) & 0x80000000){;}
+        UART_REG(UART_TXFIFO) = '\r';
+    }
+
+}
+
+// ----------------------------------------------------------------------------
 size_t _write(int file, const void *ptr, size_t len) {
 // ----------------------------------------------------------------------------
 
@@ -100,14 +117,8 @@ size_t _write(int file, const void *ptr, size_t len) {
 
 		for (size_t i = 0; i < len; i++) {
 
-			while (UART_REG(UART_TXFIFO) & 0x80000000){;}
+		    _putchar(buff[i]);
 
-			UART_REG(UART_TXFIFO) = buff[i];
-
-			if (buff[i] == '\n') {
-				while (UART_REG(UART_TXFIFO) & 0x80000000){;}
-				UART_REG(UART_TXFIFO) = '\r';
-			}
 		}
 
 		return len;
@@ -115,6 +126,22 @@ size_t _write(int file, const void *ptr, size_t len) {
 	}
 
 	return -1;
+}
+
+// ----------------------------------------------------------------------------
+int _kill (int  pid, int  sig) {
+// ----------------------------------------------------------------------------
+
+	return -1;
+
+}
+
+// ----------------------------------------------------------------------------
+int _getpid () {
+// ----------------------------------------------------------------------------
+
+	return  1;
+
 }
 
 // open("UART", 0, 0); write(1, "Ok >\n", 5); char c='\0'; while(1) if ( read(0, &c, 1) >0 ) write(1, &c, 1);
